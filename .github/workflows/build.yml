@@ -25,8 +25,11 @@ jobs:
       - name: Set up Android build (API level and build-tools)
         uses: android-actions/setup-android@v3
 
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
       - name: Build release APK
-        run: gradle assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon
 
       - name: List build outputs
         run: ls -R app/build/outputs/apk
