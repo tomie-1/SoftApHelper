@@ -111,11 +111,9 @@ public class MainActivity extends Activity {
                         prefixViews[i].setText(fixed);
                         prefixViews[i].setVisibility(View.VISIBLE);
                         fields[i].setText(def.substring(fixed.length()));
-                        fields[i].setHint(segmentHintFor(detectSegment(def)));
                     } else {
                         prefixViews[i].setVisibility(View.GONE);
                         fields[i].setText(def);
-                        fields[i].setHint("如 192.168.43.1");
                     }
                 }
                 etPrefix.setText(String.valueOf(Config.DEFAULT_PREFIX_LEN));
@@ -179,8 +177,6 @@ public class MainActivity extends Activity {
         if (newFixed != null) {
             prefixView.setText(newFixed);
             prefixView.setVisibility(View.VISIBLE);
-            // hint 随网段联动：切换后输入框为空时提示该网段的示例
-            field.setHint(segmentHintFor(position));
             if (clearRest) {
                 // 用户切换：清空，从新网段开始填
                 field.setText("");
@@ -195,18 +191,7 @@ public class MainActivity extends Activity {
         } else {
             // 自定义：隐藏前缀，输入框保留完整 IP
             prefixView.setVisibility(View.GONE);
-            field.setHint("如 192.168.43.1");
             field.setText(full);
-        }
-    }
-
-    /** 各网段在输入框里的示例 hint。 */
-    private String segmentHintFor(int position) {
-        switch (position) {
-            case SEG_A: return "如 10.0.0.1";
-            case SEG_B: return "如 172.16.0.1";
-            case SEG_C: return "如 192.168.0.1";
-            default: return "如 192.168.43.1";
         }
     }
 
