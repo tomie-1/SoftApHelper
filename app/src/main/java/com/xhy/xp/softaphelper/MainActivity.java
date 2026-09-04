@@ -35,6 +35,7 @@ public class MainActivity extends Activity {
     private final EditText[] fields = new EditText[5];
     private final Spinner[] spinners = new Spinner[5];
     private final TextView[] prefixViews = new TextView[5];
+    private final int[] appliedPositions = {-1, -1, -1, -1, -1};
     private EditText etPrefix;
 
     private static final String[] FIELD_TAGS = {"WIFI", "USB", "蓝牙", "P2P", "以太网"};
@@ -74,7 +75,7 @@ public class MainActivity extends Activity {
 
         for (int i = 0; i < 5; i++) {
             fields[i].setText(savedIps[i]);
-            setupSegmentSpinner(spinners[i], fields[i], prefixViews[i], savedIps[i]);
+            setupSegmentSpinner(spinners[i], fields[i], prefixViews[i], i, savedIps[i]);
         }
 
         etPrefix = findViewById(R.id.et_prefix);
@@ -105,8 +106,10 @@ public class MainActivity extends Activity {
                 for (int i = 0; i < 5; i++) {
                     String def = defaultIpFor(i);
                     String fixed = segmentPrefix(detectSegment(def));
-                    // 先切 spinner（触发 listener 清空），再恢复默认值
-                    spinners[i].setSelection(detectSegment(def));
+                    int seg = detectSegment(def);
+                    // 先切 spinner（异步回调会被 appliedPositions 拦截），再同步恢复默认值
+                    spinners[i].setSelection(seg);
+                    appliedPositions[i] = seg;
                     if (fixed != null) {
                         prefixViews[i].setText(fixed);
                         prefixViews[i].setVisibility(View.VISIBLE);
@@ -124,19 +127,20 @@ public class MainActivity extends Activity {
 
     /** 为单个 IP 输入行配置网段下拉。 */
     private void setupSegmentSpinner(final Spinner spinner, final EditText field,
-                                     final TextView prefixView, String initialIp) {
+                                     final TextView prefixView, final int index, String initialIp) {
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(
                 this, R.array.ip_segment_options, android.R.layout.simple_spinner_item);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
 
-        final boolean[] initialized = {false};
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (!initialized[0]) {
-                    return; // 初始 setSelection 触发，跳过
+                // Spinner 回调是异步的：与已应用状态相同的是初始化/恢复默认的残留回调，忽略
+                if (position == appliedPositions[index]) {
+                    return;
                 }
+                appliedPositions[index] = position;
                 // 用户主动切换：清空可变部分，从新网段开始
                 applySegment(prefixView, field, position, true);
             }
@@ -146,12 +150,11 @@ public class MainActivity extends Activity {
             }
         });
 
-        // 初始选中：此时 listener 会触发一次但不处理（initialized=false）
-        spinner.setSelection(detectSegment(initialIp));
-        // 手动应用一次，保留已存 IP 的可变部分
-        applySegment(prefixView, field, spinner.getSelectedItemPosition(), false);
-        // 标记初始化完成，之后的选择变化都视为用户操作
-        initialized[0] = true;
+        // 初始选中并同步应用，保留已存 IP 的可变部分
+        int seg = detectSegment(initialIp);
+        spinner.setSelection(seg);
+        appliedPositions[index] = seg;
+        applySegment(prefixView, field, seg, false);
 
         // 手动编辑时联动提示
         field.addTextChangedListener(new TextWatcher() {
