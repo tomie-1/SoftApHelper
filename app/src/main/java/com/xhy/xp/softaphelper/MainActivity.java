@@ -104,9 +104,17 @@ public class MainActivity extends Activity {
             public void onClick(View v) {
                 for (int i = 0; i < 5; i++) {
                     String def = defaultIpFor(i);
-                    fields[i].setText(def);
+                    String fixed = segmentPrefix(detectSegment(def));
+                    if (fixed != null) {
+                        // 恢复默认：前缀块 = 默认 IP 的前缀，输入框 = 去掉前缀的部分
+                        prefixViews[i].setText(fixed);
+                        prefixViews[i].setVisibility(View.VISIBLE);
+                        fields[i].setText(def.substring(fixed.length()));
+                    } else {
+                        prefixViews[i].setVisibility(View.GONE);
+                        fields[i].setText(def);
+                    }
                     spinners[i].setSelection(detectSegment(def));
-                    syncPrefix(i);
                 }
                 etPrefix.setText(String.valueOf(Config.DEFAULT_PREFIX_LEN));
                 Toast.makeText(MainActivity.this, "已恢复到默认（记得点保存）", Toast.LENGTH_SHORT).show();
@@ -188,11 +196,6 @@ public class MainActivity extends Activity {
             return fixed + rest;
         }
         return rest;
-    }
-
-    /** 同步第 i 行的前缀块状态（恢复默认时调用）。 */
-    private void syncPrefix(int i) {
-        applySegment(prefixViews[i], fields[i], spinners[i].getSelectedItemPosition(), false);
     }
 
     /** 判断一个已存 IP 应落在哪个下拉网段。 */
