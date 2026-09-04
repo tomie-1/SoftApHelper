@@ -530,16 +530,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
                 android:lineSpacingExtra="3dp"
+                android:text="• A类：第1组=10，其余任意\n• B类：第1组=172，第2组仅 16~31，其余任意\n• C类：第1组=192，第2组=168，其余任意\n• 自定义：任意合法 IPv4，非私网会提示"
                 android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="• A类 10.x.x.x：第2、3、4组任意（0~255）\n• B类 172.16~31.x.x：第2组仅 16~31，第3、4组任意\n• C类 192.168.x.x：第3、4组任意\n• 自定义：可填任意合法 IPv4，非私网会提示"
-                android:textColor="@color/text_secondary"
-                android:lineSpacingExtra="3dp"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -550,24 +542,30 @@
             android:layout_marginTop="4dp"
             android:orientation="horizontal">
 
-            <Button
+            <TextView
                 android:id="@+id/btn_save"
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_accent"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
                 android:text="保存"
                 android:textColor="@color/white"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
-            <Button
+            <TextView
                 android:id="@+id/btn_reset"
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_marginStart="12dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_input"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
                 android:text="恢复默认"
                 android:textColor="@color/text_secondary"
                 android:textSize="15sp" />

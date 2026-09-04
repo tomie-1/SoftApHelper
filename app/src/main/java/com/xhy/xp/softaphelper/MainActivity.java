@@ -10,7 +10,6 @@ import android.text.TextWatcher;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -36,7 +35,6 @@ public class MainActivity extends Activity {
     private final EditText[] fields = new EditText[5];
     private final Spinner[] spinners = new Spinner[5];
     private EditText etPrefix;
-    private TextView tvHint;
 
     private static final String[] FIELD_TAGS = {"WIFI", "USB", "蓝牙", "P2P", "以太网"};
 
@@ -75,8 +73,6 @@ public class MainActivity extends Activity {
         etPrefix = findViewById(R.id.et_prefix);
         etPrefix.setText(String.valueOf(sp.getInt(Config.KEY_PREFIX_LEN, Config.DEFAULT_PREFIX_LEN)));
 
-        tvHint = findViewById(R.id.tv_hint);
-
         TextView pkgView = findViewById(R.id.pkg_status);
         StringBuilder sb = new StringBuilder("已安装的 Tethering 应用:\n");
         for (String pkg : installedPackages()) {
@@ -87,7 +83,7 @@ public class MainActivity extends Activity {
         }
         pkgView.setText(sb.toString());
 
-        Button btnSave = findViewById(R.id.btn_save);
+        TextView btnSave = findViewById(R.id.btn_save);
         btnSave.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -95,7 +91,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        Button btnReset = findViewById(R.id.btn_reset);
+        TextView btnReset = findViewById(R.id.btn_reset);
         btnReset.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -171,32 +167,8 @@ public class MainActivity extends Activity {
         }
     }
 
-    private String segmentHint(int position) {
-        switch (position) {
-            case SEG_A:
-                return "A类 10.x.x.x：第1组=10，第2/3/4组任意 0~255";
-            case SEG_B:
-                return "B类 172.16~31.x.x：第1组=172，第2组仅 16~31，第3/4组任意";
-            case SEG_C:
-                return "C类 192.168.x.x：第1组=192，第2组=168，第3/4组任意 0~255";
-            default:
-                return "自定义 IPv4：可填任意合法地址（建议私网 10./172.16-31./192.168.）";
-        }
-    }
-
     private void updateHint() {
-        if (tvHint == null) return;
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 5; i++) {
-            int pos = spinners[i].getSelectedItemPosition();
-            if (pos != SEG_CUSTOM) {
-                sb.append("• ").append(FIELD_TAGS[i]).append(" → ").append(segmentHint(pos)).append('\n');
-            }
-        }
-        if (sb.length() == 0) {
-            sb.append("• 全部为自定义：可填任意合法 IPv4，非私网地址保存时会提示");
-        }
-        tvHint.setText(sb.toString());
+        // 规则说明已静态写在布局中，无需动态覆盖
     }
 
     private String defaultIpFor(int i) {
