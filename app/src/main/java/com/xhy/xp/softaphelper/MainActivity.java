@@ -125,7 +125,8 @@ public class MainActivity extends Activity {
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                applySegment(prefixView, field, position);
+                // 用户主动切换：清空可变部分，从新网段开始
+                applySegment(prefixView, field, position, true);
             }
 
             @Override
@@ -133,9 +134,9 @@ public class MainActivity extends Activity {
             }
         });
 
-        // 初始选中，并手动应用一次，确保初始状态正确
+        // 初始选中，并手动应用一次，保留已存 IP 的可变部分
         spinner.setSelection(detectSegment(initialIp));
-        applySegment(prefixView, field, spinner.getSelectedItemPosition());
+        applySegment(prefixView, field, spinner.getSelectedItemPosition(), false);
 
         // 手动编辑时联动提示
         field.addTextChangedListener(new TextWatcher() {
@@ -146,10 +147,11 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * 应用网段选择：A/B/C 时锁定前缀并保留可变部分，自定义时隐藏前缀。
-     * 核心：先从「当前完整 IP」剥离旧前缀得到可变部分，再套上新前缀，避免前缀叠加。
+     * 应用网段选择。
+     *
+     * @param clearRest true=清空可变部分（用户主动切换网段时），false=保留可变部分（初始加载/恢复默认时）
      */
-    private void applySegment(TextView prefixView, EditText field, int position) {
+    private void applySegment(TextView prefixView, EditText field, int position, boolean clearRest) {
         String newFixed = segmentPrefix(position);
         String oldFixed = prefixView.getText().toString().trim();
         boolean hadPrefix = prefixView.getVisibility() == View.VISIBLE && oldFixed.length() > 0;
@@ -160,14 +162,17 @@ public class MainActivity extends Activity {
         if (newFixed != null) {
             prefixView.setText(newFixed);
             prefixView.setVisibility(View.VISIBLE);
-            String rest = "";
-            // 剥离旧前缀，保留可变部分；若剥不掉则尝试剥新前缀，否则清空
-            if (oldFixed.length() > 0 && full.startsWith(oldFixed)) {
-                rest = full.substring(oldFixed.length());
+            if (clearRest) {
+                // 用户切换：清空，从新网段开始填
+                field.setText("");
+            } else if (oldFixed.length() > 0 && full.startsWith(oldFixed)) {
+                // 初始/恢复：剥离旧前缀，保留可变部分
+                field.setText(full.substring(oldFixed.length()));
             } else if (full.startsWith(newFixed)) {
-                rest = full.substring(newFixed.length());
+                field.setText(full.substring(newFixed.length()));
+            } else {
+                field.setText("");
             }
-            field.setText(rest);
         } else {
             // 自定义：隐藏前缀，输入框保留完整 IP
             prefixView.setVisibility(View.GONE);
@@ -187,7 +192,7 @@ public class MainActivity extends Activity {
 
     /** 同步第 i 行的前缀块状态（恢复默认时调用）。 */
     private void syncPrefix(int i) {
-        applySegment(prefixViews[i], fields[i], spinners[i].getSelectedItemPosition());
+        applySegment(prefixViews[i], fields[i], spinners[i].getSelectedItemPosition(), false);
     }
 
     /** 判断一个已存 IP 应落在哪个下拉网段。 */
