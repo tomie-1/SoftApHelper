@@ -173,10 +173,14 @@ public class MainActivity extends Activity {
 
     private String segmentHint(int position) {
         switch (position) {
-            case SEG_A: return "A类 10.x.x.x：第二组任意 0~255";
-            case SEG_B: return "B类 172.16-31.x.x：第二组必须 16~31";
-            case SEG_C: return "C类 192.168.x.x：第三组任意 0~255";
-            default: return "自定义 IPv4：可填任意合法地址（建议私网 10./172.16-31./192.168.）";
+            case SEG_A:
+                return "A类 10.x.x.x：第1组=10，第2/3/4组任意 0~255";
+            case SEG_B:
+                return "B类 172.16~31.x.x：第1组=172，第2组仅 16~31，第3/4组任意";
+            case SEG_C:
+                return "C类 192.168.x.x：第1组=192，第2组=168，第3/4组任意 0~255";
+            default:
+                return "自定义 IPv4：可填任意合法地址（建议私网 10./172.16-31./192.168.）";
         }
     }
 
@@ -186,8 +190,11 @@ public class MainActivity extends Activity {
         for (int i = 0; i < 5; i++) {
             int pos = spinners[i].getSelectedItemPosition();
             if (pos != SEG_CUSTOM) {
-                sb.append(FIELD_TAGS[i]).append(": ").append(segmentHint(pos)).append('\n');
+                sb.append("• ").append(FIELD_TAGS[i]).append(" → ").append(segmentHint(pos)).append('\n');
             }
+        }
+        if (sb.length() == 0) {
+            sb.append("• 全部为自定义：可填任意合法 IPv4，非私网地址保存时会提示");
         }
         tvHint.setText(sb.toString());
     }
