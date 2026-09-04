@@ -105,16 +105,18 @@ public class MainActivity extends Activity {
                 for (int i = 0; i < 5; i++) {
                     String def = defaultIpFor(i);
                     String fixed = segmentPrefix(detectSegment(def));
+                    // 先切 spinner（触发 listener 清空），再恢复默认值
+                    spinners[i].setSelection(detectSegment(def));
                     if (fixed != null) {
-                        // 恢复默认：前缀块 = 默认 IP 的前缀，输入框 = 去掉前缀的部分
                         prefixViews[i].setText(fixed);
                         prefixViews[i].setVisibility(View.VISIBLE);
                         fields[i].setText(def.substring(fixed.length()));
+                        fields[i].setHint(segmentHintFor(detectSegment(def)));
                     } else {
                         prefixViews[i].setVisibility(View.GONE);
                         fields[i].setText(def);
+                        fields[i].setHint("如 192.168.43.1");
                     }
-                    spinners[i].setSelection(detectSegment(def));
                 }
                 etPrefix.setText(String.valueOf(Config.DEFAULT_PREFIX_LEN));
                 Toast.makeText(MainActivity.this, "已恢复到默认（记得点保存）", Toast.LENGTH_SHORT).show();
@@ -130,9 +132,13 @@ public class MainActivity extends Activity {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
 
+        final boolean[] initialized = {false};
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (!initialized[0]) {
+                    return; // 初始 setSelection 触发，跳过
+                }
                 // 用户主动切换：清空可变部分，从新网段开始
                 applySegment(prefixView, field, position, true);
             }
@@ -142,9 +148,12 @@ public class MainActivity extends Activity {
             }
         });
 
-        // 初始选中，并手动应用一次，保留已存 IP 的可变部分
+        // 初始选中：此时 listener 会触发一次但不处理（initialized=false）
         spinner.setSelection(detectSegment(initialIp));
+        // 手动应用一次，保留已存 IP 的可变部分
         applySegment(prefixView, field, spinner.getSelectedItemPosition(), false);
+        // 标记初始化完成，之后的选择变化都视为用户操作
+        initialized[0] = true;
 
         // 手动编辑时联动提示
         field.addTextChangedListener(new TextWatcher() {
@@ -170,6 +179,8 @@ public class MainActivity extends Activity {
         if (newFixed != null) {
             prefixView.setText(newFixed);
             prefixView.setVisibility(View.VISIBLE);
+            // hint 随网段联动：切换后输入框为空时提示该网段的示例
+            field.setHint(segmentHintFor(position));
             if (clearRest) {
                 // 用户切换：清空，从新网段开始填
                 field.setText("");
@@ -184,7 +195,18 @@ public class MainActivity extends Activity {
         } else {
             // 自定义：隐藏前缀，输入框保留完整 IP
             prefixView.setVisibility(View.GONE);
+            field.setHint("如 192.168.43.1");
             field.setText(full);
+        }
+    }
+
+    /** 各网段在输入框里的示例 hint。 */
+    private String segmentHintFor(int position) {
+        switch (position) {
+            case SEG_A: return "如 10.0.0.1";
+            case SEG_B: return "如 172.16.0.1";
+            case SEG_C: return "如 192.168.0.1";
+            default: return "如 192.168.43.1";
         }
     }
 
