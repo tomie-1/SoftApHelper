@@ -8,4 +8,12 @@
         <item>com.google.android.networkstack.tethering.inprocess</item>
         <item>com.google.android.networkstack.tethering</item>
     </string-array>
+
+    <!-- 网段下拉选项 -->
+    <string-array name="ip_segment_options">
+        <item>自定义 IPv4</item>
+        <item>A类 10.x.x.x</item>
+        <item>B类 172.16-31.x.x</item>
+        <item>C类 192.168.x.x</item>
+    </string-array>
 </resources>

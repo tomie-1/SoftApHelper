@@ -41,8 +41,6 @@ public class MainHook implements IXposedHookLoadPackage {
 
     private static final String callerMethodName_Q = "configureIPv4";
 
-    private static final String WIFI_HOST_IFACE_ADDR = "192.168.43.1";
-
     // TetheringType
     public static final int TETHERING_INVALID = -1;
     public static final int TETHERING_WIFI = 0;
@@ -53,16 +51,8 @@ public class MainHook implements IXposedHookLoadPackage {
     public static final int TETHERING_ETHERNET = 5;
     public static final int TETHERING_WIGIG = 6;
 
-    private static final String WIFI_HOST_IFACE_ADDRESS = WIFI_HOST_IFACE_ADDR + "/24";
-    private static final String USB_HOST_IFACE_ADDRESS = "192.168.42.1/24";
-    private static final String BT_HOST_IFACE_ADDRESS = "192.168.44.1/24";
-    private static final String P2P_HOST_IFACE_ADDRESS = "192.168.49.1/24";
-    private static final String ETHERNET_HOST_IFACE_ADDRESS = "192.168.45.1/24";
-
     // staticBSSID Switch
     private static final boolean shouldStaticBSSID = false;
-
-    private static HashMap<Integer, String> AddressMap = new HashMap<>();
 
 
     public static final int BAND_5GHZ = 1 << 1;
@@ -73,19 +63,17 @@ public class MainHook implements IXposedHookLoadPackage {
     private static HashSet<Integer> AvailableChannelSet_HIGH = new HashSet<>(Arrays.asList(149, 153, 157, 161, 165));
 //    private static HashSet<Integer> AvailableChannelFreqSet = new HashSet<>(Arrays.asList(5745, 5765, 5785, 5805, 5825));
 
-    static {
-        AddressMap.put(TETHERING_WIFI, WIFI_HOST_IFACE_ADDRESS);
-        AddressMap.put(TETHERING_USB, USB_HOST_IFACE_ADDRESS);
-        AddressMap.put(TETHERING_BLUETOOTH, BT_HOST_IFACE_ADDRESS);
-        AddressMap.put(TETHERING_WIFI_P2P, P2P_HOST_IFACE_ADDRESS);
-        AddressMap.put(TETHERING_ETHERNET, ETHERNET_HOST_IFACE_ADDRESS);
+    /** Extracts the bare IP from a "ip/prefix" cidr string. */
+    private static String ipOnly(String cidr) {
+        int idx = cidr.indexOf('/');
+        return idx < 0 ? cidr : cidr.substring(0, idx);
     }
 
     private boolean isConflictPrefix(Class<?> klass, Object thiz, IpPrefix prefix) throws Exception {
         Field field_mPrivateAddressCoordinator = ReflectUtils.findField(klass, "mPrivateAddressCoordinator");
         // Android 15+, bypass
         if(field_mPrivateAddressCoordinator == null){
-            XposedBridge.log("[" + TAG + "] [Warning]: [" + WIFI_HOST_IFACE_ADDR + "] field_mPrivateAddressCoordinator not found.");
+            XposedBridge.log("[" + TAG + "] [Warning]: [" + Config.DEFAULT_WIFI_IP + "] field_mPrivateAddressCoordinator not found.");
             return false;
         }
         Object mPrivateAddressCoordinator = field_mPrivateAddressCoordinator.get(thiz);
@@ -111,9 +99,11 @@ public class MainHook implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
         ClassLoader classLoader = lpparam.classLoader;
-//        XposedBridge.log("["+TAG+"] [handleLoadPackage] packageName: "
-//                + lpparam.packageName + "-" + lpparam.processName + "-" + classLoader
-//        );
+
+        // 读取配置（热点的自定义网段）
+        Config config = new Config();
+        config.reload();
+        final HashMap<Integer, String> addressMap = config.buildAddressMap();
 
         // 固定热点ip
         final String className = Build.VERSION.SDK_INT <= Build.VERSION_CODES.P ? className_P :
@@ -129,7 +119,9 @@ public class MainHook implements IXposedHookLoadPackage {
                     new XC_MethodReplacement() {
                         @Override
                         protected Object replaceHookedMethod(MethodHookParam param) {
-                            return WIFI_HOST_IFACE_ADDR;
+                            // 返回不带了网段前缀，仅返回IP
+                            String address = addressMap.get(TETHERING_WIFI);
+                            return ipOnly(address);
                         }
                     });
         }
@@ -160,19 +152,23 @@ public class MainHook implements IXposedHookLoadPackage {
                                 int mInterfaceType = 0;
                                 if(field_mInterfaceType == null){
                                     // avoid exception
-                                    XposedBridge.log("[" + TAG + "] [Warning]: [" + WIFI_HOST_IFACE_ADDR + "] field_mInterfaceType not found.");
+                                    XposedBridge.log("[" + TAG + "] [Warning]: [" + Config.DEFAULT_WIFI_IP + "] field_mInterfaceType not found.");
                                 }else{
                                     mInterfaceType = field_mInterfaceType.getInt(param.thisObject);
                                 }
 
-                                String address = AddressMap.get(mInterfaceType);
+                                String address = addressMap.get(mInterfaceType);
 
+                                if (address == null) {
+                                    return;
+                                }
+                                final String ip = ipOnly(address);
                                 final LinkAddress mLinkAddress = (LinkAddress) ctor_LinkAddress.newInstance(address);
                                 final IpPrefix prefix = (IpPrefix) ctor_IpPrefix.newInstance(address);
 
-                                if (address != null && StackUtils.isCallingFrom(className, callerMethodName_Q)) {
+                                if (StackUtils.isCallingFrom(className, callerMethodName_Q)) {
                                     if (isConflictPrefix(klass, param.thisObject, prefix)) {
-                                        XposedBridge.log("[" + TAG + "] [Warning]: [" + WIFI_HOST_IFACE_ADDR + "] isConflictPrefix! do not replace.");
+                                        XposedBridge.log("[" + TAG + "] [Warning]: [" + ip + "] isConflictPrefix! do not replace.");
                                     } else {
                                         XposedBridge.log("[" + TAG + "] [Success Edit]:" + address);
                                         param.setResult(mLinkAddress);
