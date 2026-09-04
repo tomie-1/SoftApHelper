@@ -34,6 +34,7 @@ public class MainActivity extends Activity {
     // [id, View id...]
     private final EditText[] fields = new EditText[5];
     private final Spinner[] spinners = new Spinner[5];
+    private final TextView[] prefixViews = new TextView[5];
     private EditText etPrefix;
 
     private static final String[] FIELD_TAGS = {"WIFI", "USB", "蓝牙", "P2P", "以太网"};
@@ -55,6 +56,12 @@ public class MainActivity extends Activity {
         spinners[3] = findViewById(R.id.sp_seg_p2p);
         spinners[4] = findViewById(R.id.sp_seg_eth);
 
+        prefixViews[0] = findViewById(R.id.tv_prefix_wifi);
+        prefixViews[1] = findViewById(R.id.tv_prefix_usb);
+        prefixViews[2] = findViewById(R.id.tv_prefix_bt);
+        prefixViews[3] = findViewById(R.id.tv_prefix_p2p);
+        prefixViews[4] = findViewById(R.id.tv_prefix_eth);
+
         // 加载已保存配置
         SharedPreferences sp = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
         String[] savedIps = {
@@ -67,7 +74,7 @@ public class MainActivity extends Activity {
 
         for (int i = 0; i < 5; i++) {
             fields[i].setText(savedIps[i]);
-            setupSegmentSpinner(spinners[i], fields[i], savedIps[i]);
+            setupSegmentSpinner(spinners[i], fields[i], prefixViews[i], savedIps[i]);
         }
 
         etPrefix = findViewById(R.id.et_prefix);
@@ -99,6 +106,7 @@ public class MainActivity extends Activity {
                     String def = defaultIpFor(i);
                     fields[i].setText(def);
                     spinners[i].setSelection(detectSegment(def));
+                    syncPrefix(i);
                 }
                 etPrefix.setText(String.valueOf(Config.DEFAULT_PREFIX_LEN));
                 Toast.makeText(MainActivity.this, "已恢复到默认（记得点保存）", Toast.LENGTH_SHORT).show();
@@ -107,7 +115,8 @@ public class MainActivity extends Activity {
     }
 
     /** 为单个 IP 输入行配置网段下拉。 */
-    private void setupSegmentSpinner(final Spinner spinner, final EditText field, String initialIp) {
+    private void setupSegmentSpinner(final Spinner spinner, final EditText field,
+                                     final TextView prefixView, String initialIp) {
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(
                 this, R.array.ip_segment_options, android.R.layout.simple_spinner_item);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -119,14 +128,21 @@ public class MainActivity extends Activity {
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (position == SEG_A || position == SEG_B || position == SEG_C) {
-                    String prefixToApply = segmentPrefix(position);
-                    // 若当前框还没有该网段的前缀，则自动填充（不改写用户已手填的内容）
-                    if (!field.getText().toString().startsWith(prefixToApply)) {
-                        field.setText(prefixToApply);
+                String fixedPrefix = segmentPrefix(position);
+                if (fixedPrefix != null) {
+                    // 锁定前缀：显示前缀块，输入框只保留可变部分
+                    prefixView.setText(fixedPrefix);
+                    prefixView.setVisibility(View.VISIBLE);
+                    String cur = field.getText().toString().trim();
+                    if (cur.startsWith(fixedPrefix)) {
+                        field.setText(cur.substring(fixedPrefix.length()));
+                    } else {
+                        field.setText("");
                     }
+                } else {
+                    // 自定义：隐藏前缀块，输入框保留完整 IP
+                    prefixView.setVisibility(View.GONE);
                 }
-                updateHint();
             }
 
             @Override
@@ -140,6 +156,31 @@ public class MainActivity extends Activity {
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) { updateHint(); }
             @Override public void afterTextChanged(Editable s) {}
         });
+    }
+
+    /** 取一行当前完整的 IP（前缀块 + 输入框可变部分）。 */
+    private String fullIpFor(int i) {
+        String fixed = prefixViews[i].getText().toString().trim();
+        String rest = fields[i].getText().toString().trim();
+        if (prefixViews[i].getVisibility() == View.VISIBLE && fixed.length() > 0) {
+            return fixed + rest;
+        }
+        return rest;
+    }
+
+    /** 同步第 i 行的前缀块状态：A/B/C 显示并剥离前缀，自定义隐藏。 */
+    private void syncPrefix(int i) {
+        String fixed = segmentPrefix(spinners[i].getSelectedItemPosition());
+        if (fixed != null) {
+            prefixViews[i].setText(fixed);
+            prefixViews[i].setVisibility(View.VISIBLE);
+            String cur = fields[i].getText().toString().trim();
+            if (cur.startsWith(fixed)) {
+                fields[i].setText(cur.substring(fixed.length()));
+            }
+        } else {
+            prefixViews[i].setVisibility(View.GONE);
+        }
     }
 
     /** 判断一个已存 IP 应落在哪个下拉网段。 */
@@ -199,7 +240,7 @@ public class MainActivity extends Activity {
     private void save() {
         String[] ips = new String[5];
         for (int i = 0; i < 5; i++) {
-            ips[i] = fields[i].getText().toString().trim();
+            ips[i] = fullIpFor(i);
         }
         String prefixStr = etPrefix.getText().toString().trim();
 
