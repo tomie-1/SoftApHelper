@@ -122,27 +122,10 @@ public class MainActivity extends Activity {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
 
-        // 根据已存 IP 判断当前应选中哪个网段
-        spinner.setSelection(detectSegment(initialIp));
-
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                String fixedPrefix = segmentPrefix(position);
-                if (fixedPrefix != null) {
-                    // 锁定前缀：显示前缀块，输入框只保留可变部分
-                    prefixView.setText(fixedPrefix);
-                    prefixView.setVisibility(View.VISIBLE);
-                    String cur = field.getText().toString().trim();
-                    if (cur.startsWith(fixedPrefix)) {
-                        field.setText(cur.substring(fixedPrefix.length()));
-                    } else {
-                        field.setText("");
-                    }
-                } else {
-                    // 自定义：隐藏前缀块，输入框保留完整 IP
-                    prefixView.setVisibility(View.GONE);
-                }
+                applySegment(prefixView, field, position);
             }
 
             @Override
@@ -150,12 +133,46 @@ public class MainActivity extends Activity {
             }
         });
 
+        // 初始选中，并手动应用一次，确保初始状态正确
+        spinner.setSelection(detectSegment(initialIp));
+        applySegment(prefixView, field, spinner.getSelectedItemPosition());
+
         // 手动编辑时联动提示
         field.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) { updateHint(); }
             @Override public void afterTextChanged(Editable s) {}
         });
+    }
+
+    /**
+     * 应用网段选择：A/B/C 时锁定前缀并保留可变部分，自定义时隐藏前缀。
+     * 核心：先从「当前完整 IP」剥离旧前缀得到可变部分，再套上新前缀，避免前缀叠加。
+     */
+    private void applySegment(TextView prefixView, EditText field, int position) {
+        String newFixed = segmentPrefix(position);
+        String oldFixed = prefixView.getText().toString().trim();
+        boolean hadPrefix = prefixView.getVisibility() == View.VISIBLE && oldFixed.length() > 0;
+        String cur = field.getText().toString().trim();
+        // 当前完整 IP = 旧前缀 + 输入框
+        String full = hadPrefix ? oldFixed + cur : cur;
+
+        if (newFixed != null) {
+            prefixView.setText(newFixed);
+            prefixView.setVisibility(View.VISIBLE);
+            String rest = "";
+            // 剥离旧前缀，保留可变部分；若剥不掉则尝试剥新前缀，否则清空
+            if (oldFixed.length() > 0 && full.startsWith(oldFixed)) {
+                rest = full.substring(oldFixed.length());
+            } else if (full.startsWith(newFixed)) {
+                rest = full.substring(newFixed.length());
+            }
+            field.setText(rest);
+        } else {
+            // 自定义：隐藏前缀，输入框保留完整 IP
+            prefixView.setVisibility(View.GONE);
+            field.setText(full);
+        }
     }
 
     /** 取一行当前完整的 IP（前缀块 + 输入框可变部分）。 */
@@ -168,19 +185,9 @@ public class MainActivity extends Activity {
         return rest;
     }
 
-    /** 同步第 i 行的前缀块状态：A/B/C 显示并剥离前缀，自定义隐藏。 */
+    /** 同步第 i 行的前缀块状态（恢复默认时调用）。 */
     private void syncPrefix(int i) {
-        String fixed = segmentPrefix(spinners[i].getSelectedItemPosition());
-        if (fixed != null) {
-            prefixViews[i].setText(fixed);
-            prefixViews[i].setVisibility(View.VISIBLE);
-            String cur = fields[i].getText().toString().trim();
-            if (cur.startsWith(fixed)) {
-                fields[i].setText(cur.substring(fixed.length()));
-            }
-        } else {
-            prefixViews[i].setVisibility(View.GONE);
-        }
+        applySegment(prefixViews[i], fields[i], spinners[i].getSelectedItemPosition());
     }
 
     /** 判断一个已存 IP 应落在哪个下拉网段。 */
